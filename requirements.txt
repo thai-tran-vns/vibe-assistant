@@ -1,0 +1,4 @@
+aioconsole
+loguru
+pytest
+pytest-asyncio
