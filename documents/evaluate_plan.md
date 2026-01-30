@@ -1,35 +1,25 @@
-# Plan Evaluation
+# Plan Evaluation (Updated for v4 "Recursive Chef")
 
-This document evaluates the proposed architecture and process for the Vibe Assistant, based on `PLAN.md`.
+This document tracks the evaluation of the current project plan (`plans.md`) against the initial risks and requirements.
 
-## 1. Process Evaluation
+## 1. Status of Previous Concerns
 
-### Strengths
-*   **Risk-First:** Phase 1 addresses the hardest technical challenge: running a background loop alongside blocking user input.
-*   **Iterative:** Moving from a skeleton -> domain logic -> UI polish prevents over-engineering early on.
-*   **Simple Stack:** Sticking to JSON and standard async libraries keeps overhead low.
+| Concern | Status in v4 Plan | Notes |
+| :--- | :--- | :--- |
+| **Output Conflict** (Stdout pollution) | **Addressed** | Plan now specifies `loguru` for *file-based* logging to avoid messing up the REPL/User prompt. |
+| **JSON Corruption** | **Addressed** | Phase 2 explicitly mentions `Atomic writes` for the `MemoryManager`. |
+| **Graceful Shutdown** | **Implicit** | Not explicitly detailed in `plans.md`, but part of "Async Core". *Action Item: Ensure `signal` handling is implemented.* |
+| **Missing Tests** | **Open** | Plan mentions "Verification Plan" but specific unit testing strategy for domain logic could be stronger. |
 
-### Weaknesses
-*   **Output Conflict:** In a basic CLI (Phase 1/2), background logs printing to `stdout` will inevitably garble the user's input prompt. This makes the prototype frustrating to use before Phase 3 (TUI) arrives.
-*   **Missing Testing Strategy:** There is no mention of unit tests for the Domain Logic (Phase 2). Logic should be tested independently of the async runtime.
+## 2. New Risks & Considerations (v4)
 
-## 2. Reliability & Risks
+*   **Complexity of `aioconsole`:** While better than raw threads, managing the input loop alongside background tasks can still be tricky regarding blocking behavior.
+*   **REPL Security:** The "Safety" task in Phase 1 is critical. Arbitrary code execution (even local) needs careful sandboxing or strict boundaries, especially if we later import external libraries.
+*   **Dependencies:** `aioconsole` and `loguru` are added. Need to ensure `requirements.txt` is updated.
 
-*   **The "Output" Race:** `loguru` printing asynchronously while the user types via `aioconsole` will break the visual prompt line.
-    *   *Mitigation:* Use a dedicated logging area or silence non-critical background logs during input mode until the TUI is ready.
-*   **Graceful Shutdown:** Async loops are notorious for hanging on exit if tasks aren't cancelled properly.
-    *   *Risk:* `Ctrl+C` might leave the JSON file corrupted or the process hanging.
-*   **JSON Corruption:** If the app crashes while writing to `notes.json`, data is lost.
-    *   *Mitigation:* Write to a temporary file and atomic rename.
+## 3. Verification Checklist for Phase 1
 
-## 3. Improvements
-
-*   **Add "Graceful Shutdown" to Phase 1:** Explicitly plan for a signal handler (SIGINT) to cancel pending tasks and close the loop cleanly.
-*   **Atomic Writes in Phase 2:** Ensure the `save` method writes to `temp.json` and renames it to `notes.json` to prevent partial writes.
-*   **Separate "View" from "Logic" early:** Even in Phase 2, ensure the `NoteManager` returns data rather than printing it directly. This makes the Phase 3 transition to a TUI much easier.
-
-## 4. What to Validate Manually
-
-*   **Input Interruption:** Type a long sentence while the background agent is logging. Does the cursor jump? Does the text get mixed with log lines?
-*   **Crash Recovery:** Kill the process (`kill -9`) while it's "processing" a note. Check if `notes.json` is valid JSON afterwards.
-*   **State Persistence:** Add a note, exit normally, and restart. Verify the note is still there.
+- [ ] **Concurrency:** Can I type in the prompt while the background loop writes to a log file?
+- [ ] **State:** Does `x = 5` in the REPL persist to the next turn?
+- [ ] **Safety:** Does `import os; os.system('rm -rf /')` (or similar) get blocked or at least contained? (Basic check).
+- [ ] **Shutdown:** Does `Ctrl+C` exit cleanly without hanging processes?
