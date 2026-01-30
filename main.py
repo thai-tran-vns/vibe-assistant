@@ -1,13 +1,16 @@
 import asyncio
-import signal
 import sys
+import os
 from loguru import logger
 import aioconsole
 
+# Ensure logs directory exists
+if not os.path.exists("logs"):
+    os.makedirs("logs")
+
 # Configure logging
 logger.remove()
-logger.add("app.log", level="DEBUG", rotation="1 MB")
-logger.add(sys.stderr, level="WARNING")
+logger.add("logs/app.log", level="DEBUG", rotation="1 MB")
 
 async def user_loop():
     """Handles user input asynchronously."""
@@ -15,9 +18,17 @@ async def user_loop():
     while True:
         try:
             # Use aioconsole for non-blocking input
-            user_input = await aioconsole.ainput("You: ")
+            user_input = await aioconsole.ainput(">>> ")
+            
+            if user_input.strip().lower() in ["exit", "quit"]:
+                print("Exiting...")
+                logger.info("User requested exit")
+                break
+            
+            # Echo input for now
             print(f"Echo: {user_input}")
             logger.info(f"User input: {user_input}")
+            
         except asyncio.CancelledError:
             logger.info("User loop cancelled")
             raise
@@ -26,63 +37,62 @@ async def user_loop():
             # Prevent tight loop on error
             await asyncio.sleep(1)
 
-async def agent_loop():
-    """Simulates background agent work."""
-    logger.info("Agent loop started")
+async def supervisor_loop():
+    """Background supervisor loop."""
+    logger.info("Supervisor loop started")
     while True:
         try:
-            logger.info("Agent heartbeat...")
-            await asyncio.sleep(5)
+            logger.debug("Supervisor heartbeat...")
+            await asyncio.sleep(1) # Sleep for a short interval
         except asyncio.CancelledError:
-            logger.info("Agent loop cancelled")
+            logger.info("Supervisor loop cancelled")
             raise
         except Exception as e:
-            logger.error(f"Error in agent_loop: {repr(e)}")
+            logger.error(f"Error in supervisor_loop: {repr(e)}")
             await asyncio.sleep(1)
 
 async def main():
-    """Main entry point with graceful shutdown."""
-    loop = asyncio.get_running_loop()
-    stop_event = asyncio.Event()
-
-    def signal_handler():
-        logger.warning("Shutdown signal received")
-        stop_event.set()
-
-    # Register signal handlers
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, signal_handler)
-
+    """Main execution entry point."""
     logger.info("Application started")
-
-    # Start background tasks
+    
+    # Create tasks
+    supervisor_task = asyncio.create_task(supervisor_loop())
     user_task = asyncio.create_task(user_loop())
-    agent_task = asyncio.create_task(agent_loop())
-
-    # Wait for shutdown signal
-    await stop_event.wait()
-
-    logger.info("Shutdown initiated")
-
-    # Cancel all running tasks except current
-    current_task = asyncio.current_task()
-    tasks = [t for t in asyncio.all_tasks() if t is not current_task]
-
-    for task in tasks:
-        task.cancel()
-
-    # Wait for tasks to complete/cancel
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-
-    for result in results:
-        if isinstance(result, Exception) and not isinstance(result, asyncio.CancelledError):
-            logger.error(f"Task failed during shutdown: {result}")
-
-    logger.info("Shutdown complete")
+    
+    tasks = [supervisor_task, user_task]
+    
+    try:
+        # Wait for the user loop to complete or a signal
+        # We await user_task primarily because if the user types 'exit', we want to stop.
+        # However, asyncio.gather is requested/suggested. 
+        # If we use gather, we need to handle the fact that supervisor never ends.
+        
+        # Using wait to handle 'exit' command from user_loop naturally
+        done, pending = await asyncio.wait(
+            [user_task], 
+            return_when=asyncio.FIRST_COMPLETED
+        )
+        
+    except asyncio.CancelledError:
+        logger.info("Main task cancelled")
+    except KeyboardInterrupt:
+        logger.info("KeyboardInterrupt received")
+    finally:
+        logger.info("Shutting down...")
+        
+        # Cancel all pending tasks (this includes supervisor_loop if user_loop finished,
+        # or both if KeyboardInterrupt happened)
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        
+        # Wait for cancellation to propagate
+        await asyncio.gather(*tasks, return_exceptions=True)
+        logger.info("Shutdown complete")
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        # Fallback for environments where signal handlers might be tricky
+        # Handle Ctrl+C gracefully if it happens outside the async loop (e.g. startup)
         pass
