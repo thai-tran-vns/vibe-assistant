@@ -1,85 +1,81 @@
-# Revised Project Plan: The Supervisor Architecture (v2)
+# Revised Project Plan: The "Recursive Chef" Architecture (v4)
 
 ## Overview
-Transform `vibe-assistant` into a **Supervisor-Worker Agent System** inspired by the `RLM` "Master Chef" model. The goal is a highly modular, autonomous CLI assistant.
+This plan consolidates the original **CLI Assistant** scope with the **"Master Chef"** organizational model (`RLM.md`) and the **Recursive REPL** interaction mechanism (`RLM_paper.md`).
 
-*   **Supervisor (System):** The "Head Chef" who orchestrates.
-*   **Sub-Agents (Workers):** The "Line Cooks" who execute specialized tasks.
-*   **Skills:** The "Recipes" (workflows/logic) that Agents follow.
-*   **Tools:** The "Kitchen Appliances" (atomic functions) used by Skills.
-*   **Memory:** The "Orders & Notes" (shared context).
-
----
-
-## Phase 1: The Foundation
-**Focus:** Infrastructure, Event Loop, and basic "Supervisor" Skeleton.
-
-### Tasks
-1.  **Refine `main.py`:**
-    *   Rename `agent_loop` to `supervisor_loop`.
-    *   Ensure strict separation between "User Interface" (Input/Output) and "Agent Brain" (Logic).
-2.  **Define Core Interfaces (`core.py`):**
-    *   `Agent`: Protocol defining `run()`, `shutdown()`.
-    *   `Memory`: Protocol for data access.
-    *   `Tool`: Protocol for atomic executable actions.
-3.  **Implement Basic Supervisor:**
-    *   A simple state machine that logs "Watching..." and can react to a "ping" from the user.
+**The Concept:**
+*   **The Kitchen (Environment):** An async Python REPL where the agent "lives".
+*   **The Appliances (Tools):** Atomic functions (NoteManager, FileSystem) exposed to the REPL.
+*   **The Recipes (Skills):** High-level workflows defined in Markdown/Code that the agent follows.
+*   **The Chef (Agent):** The logic that observes the kitchen, plans using recipes, and executes via code generation.
 
 ---
 
-## Phase 2: The "RLM" Core (Memory, Tools, Skills)
-**Focus:** The Brain (Memory) and Hands (Tools/Skills).
+## Phase 1: The Kitchen (Infrastructure & REPL)
+**Goal:** Establish the `asyncio` runtime and the Python Execution Environment.
 
 ### Tasks
-1.  **Memory System (`memory/`):**
-    *   **Concept:** Distinguish between "Session Memory" (Active context, short-term) and "Archive" (Long-term persistence).
-    *   **Structure:** Create `MemoryManager`.
-    *   **Persistence:** Implement atomic save/load to `data/memory.json` (or YAML as per RLM preference).
-2.  **Tool System (`tools/`):**
-    *   **Concept:** Atomic, side-effect producing Python functions (The "Appliances").
-    *   **Initial Tools:**
-        *   `FileTool`: Read/Write files.
-        *   `TimeTool`: Get current time.
-3.  **Skill System (`skills/`):**
-    *   **Concept:** Workflows that chain Tools together (The "Recipes").
-    *   **Implementation:**
-        *   Define `BaseSkill` with `name`, `description`, `execute()`.
-        *   Design to eventually support Markdown-defined logic (RLM style), but start with Python classes for simplicity.
-        *   *Example Skill:* `SaveNoteSkill` (uses `FileTool` + formatting logic).
+1.  **Async Core (`main.py`):**
+    *   Implement the `user_loop` (Input) and `supervisor_loop` (Background) using `aioconsole`.
+    *   Setup `loguru` for file-based logging (avoid stdout pollution).
+2.  **The REPL (`core/repl.py`):
+    *   Implement a `PythonREPL` class.
+    *   **Context Persistence:** Maintain a `locals()` dictionary across turns.
+    *   **Safety:** Basic restrictions on dangerous imports.
+    *   *Connection to RLM Paper:* The agent interacts with the world *only* by writing code to this REPL.
 
 ---
 
-## Phase 3: The Sub-Agent Hierarchy
-**Focus:** Specialization and Delegation.
+## Phase 2: The Appliances (Domain & Tools)
+**Goal:** Build the "Hands" of the system and the data layer.
 
 ### Tasks
-1.  **Sub-Agent Framework:**
-    *   Create `BaseAgent` class implementing the Phase 1 interface.
-    *   Agents are assigned specific **Skills** and access to **Memory**.
-2.  **The "Supervisor" Logic:**
-    *   Implement routing logic (The "Dispatcher"):
-        *   *If input implies action -> Delegate to `TaskAgent`.*
-        *   *If input is chat -> Delegate to `ChatAgent`.*
-3.  **Implement `TaskAgent`:**
-    *   Equipped with `SaveNoteSkill`, `ListNotesSkill`.
-4.  **Implement `ChatAgent`:**
-    *   Equipped with basic conversation logic (echo or LLM integration).
+1.  **Domain Models (`models/`):
+    *   Define `Note`, `Task` (Pydantic/Dataclasses).
+2.  **Memory System (`memory/`):
+    *   **Session Memory:** Short-term context (recent REPL outputs).
+    *   **Long-Term Memory:** The "Order Ticket". A `MemoryManager` that persists notes/tasks to `data/store.json` (Atomic writes).
+3.  **Tool Registry (`tools/`):
+    *   Create `Tool` protocol.
+    *   Expose `MemoryManager` methods as tools (e.g., `tools.add_note`, `tools.list_notes`).
+    *   *Key Distinction:* These are *deterministic Python functions* (The Appliances).
 
 ---
 
-## Phase 4: Autonomy & "Vibe"
-**Focus:** Proactivity and TUI.
+## Phase 3: The Chef (Agent Logic & Skills)
+**Goal:** Implement the "Brain" that uses the Tools.
 
 ### Tasks
-1.  **TUI Integration:**
-    *   Move to `textual` or `rich` for a split-screen interface.
-    *   Visualize Supervisor state (Idle, Delegating, Waiting).
-2.  **Proactive Routines:**
-    *   Give Supervisor a `Cron` trigger (e.g., "Every 5 mins check for stale tasks").
-    *   Supervisor wakes up `HousekeeperAgent` to clean up memory.
+1.  **The Agent Loop (`agent/`):
+    *   **Observation:** Read REPL output / Memory state.
+    *   **Thought:** LLM decides what to do.
+    *   **Action:** Generate Python code -> Execute in REPL.
+2.  **Recursive "Sub-Chefs" (`llm_query`):
+    *   Implement the `llm_query` primitive for the REPL.
+    *   *Use Case:* If a note is too long, the Agent writes code to slice it and calls `llm_query` to summarize the slice.
+3.  **Skills (`skills/`):
+    *   Define "Recipes" (e.g., `ReviewDailyTasks`).
+    *   Initially implement as Python functions that the Agent can call.
+    *   *Evolution:* Move to Markdown-defined recipes that the Agent reads and interprets.
+
+---
+
+## Phase 4: The Service (UI & Proactivity)
+**Goal:** A beautiful, proactive user experience.
+
+### Tasks
+1.  **TUI (`ui/`):
+    *   Integrate `rich` (or `textual`) for a split-screen view.
+    *   **Top Pane:** Agent Status / Logs (The "Kitchen Window").
+    *   **Bottom Pane:** User Input.
+2.  **Proactivity:**
+    *   The `supervisor_loop` periodically injects a "Trigger" into the REPL (e.g., `check_schedule()`).
+    *   The Agent wakes up, runs the code, and notifies the user if needed.
 
 ---
 
 ## Verification Plan
-*   **Unit Tests:** Test `Memory` read/write, `Tool` execution, and `Supervisor` routing logic.
-*   **Integration Tests:** Simulate a user "Add Note" command -> Supervisor -> TaskAgent -> SaveNoteSkill -> FileTool -> Disk.
+*   **Phase 1:** Test REPL variable persistence and async loop concurrency.
+*   **Phase 2:** Test `MemoryManager` atomic saves and Tool exposure.
+*   **Phase 3:** Integration test: "Agent, create a note about apples." -> Agent writes `tools.add_note("Apples")` -> Verify JSON.
+*   **Phase 4:** User Acceptance: Verify TUI responsiveness while Agent works in background.
