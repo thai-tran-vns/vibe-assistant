@@ -12,10 +12,9 @@
 
 ### Step-by-Step Implementation
 1.  **Initialize Git:**
-    - Run `git init`.
-    - Create a `.gitignore` file (include `.venv/`, `__pycache__/`, `*.log`, `.DS_Store`).
+    Already done
 2.  **Virtual Environment:**
-    - Create environment: `python3 -m venv .venv`
+    - Create environment: Already Done
     - Activate environment: `source .venv/bin/activate`
 3.  **Dependencies:**
     - Create `requirements.txt`:
@@ -25,7 +24,7 @@
         pytest
         pytest-asyncio
         ```
-    - Install: `pip install -r requirements.txt`
+    - For each dependency, run `uv add <name>`
 4.  **Test Setup:**
     - Create `tests/` directory.
     - Create `tests/conftest.py` (empty for now).
@@ -36,7 +35,7 @@
 
 ### Inputs & Outputs
 - **Input:** `requirements.txt`
-- **Output:** Installed packages in `.venv`, initialized git repo.
+- **Output:** Installed packages in `.venv`.
 
 ### Dependencies
 - `aioconsole`: For non-blocking standard input.
