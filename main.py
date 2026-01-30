@@ -8,9 +8,10 @@ import aioconsole
 if not os.path.exists("logs"):
     os.makedirs("logs")
 
-# Configure logging
-logger.remove()
-logger.add("logs/app.log", level="DEBUG", rotation="1 MB")
+def setup_logging():
+    """Configures the application logging."""
+    logger.remove()
+    logger.add("logs/app.log", level="DEBUG", rotation="1 MB")
 
 async def user_loop():
     """Handles user input asynchronously."""
@@ -53,6 +54,7 @@ async def supervisor_loop():
 
 async def main():
     """Main execution entry point."""
+    setup_logging()
     logger.info("Application started")
     
     # Create tasks
