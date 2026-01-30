@@ -3,29 +3,29 @@
 ## 📋 To Do
 
 ### Infrastructure
-- [ ] **Setup Project Structure**: Ensure `core/`, `tests/`, `logs/` directories exist.
-- [ ] **Dependency Management**: Update `requirements.txt` with `aioconsole`, `loguru`.
-- [ ] **Async Entry Point (`main.py`)**:
-    - [ ] Implement `user_loop` using `aioconsole.ainput`.
-    - [ ] Implement `supervisor_loop` (placeholder for now).
-    - [ ] Setup `loguru` to write to `logs/app.log` (sink).
-    - [ ] Ensure graceful shutdown (SIGINT handling).
+- [x] **Setup Project Structure**: Ensure `core/`, `tests/`, `logs/` directories exist.
+- [x] **Dependency Management**: Update `requirements.txt` with `aioconsole`, `loguru`.
+- [x] **Async Entry Point (`main.py`)**:
+    - [x] Implement `user_loop` using `aioconsole.ainput`.
+    - [x] Implement `supervisor_loop` (placeholder for now).
+    - [x] Setup `loguru` to write to `logs/app.log` (sink).
+    - [x] Ensure graceful shutdown (SIGINT handling).
 
 ### Core Components
-- [ ] **Python REPL Engine (`core/repl.py`)**:
-    - [ ] Create `PythonREPL` class.
-    - [ ] Implement `execute(code: str) -> Any` method.
-    - [ ] **Context Management**: Ensure `locals()` dictionary persists between calls.
-    - [ ] **Output Capture**: Capture `stdout`/`stderr` from executed code.
-    - [ ] **Basic Safety**: Block usage of `exit()`, `quit()` inside the REPL to prevent killing the host.
+- [x] **Python REPL Engine (`core/repl.py`)**:
+    - [x] Create `PythonREPL` class.
+    - [x] Implement `execute(code: str) -> Any` method.
+    - [x] **Context Management**: Ensure `locals()` dictionary persists between calls.
+    - [x] **Output Capture**: Capture `stdout`/`stderr` from executed code.
+    - [x] **Basic Safety**: Block usage of `exit()`, `quit()` inside the REPL to prevent killing the host.
 
 ### Testing & Verification
-- [ ] **Test Concurrency**: Verify `user_loop` is not blocked by `supervisor_loop`.
-- [ ] **Test REPL State**: Unit test to verify variable persistence.
-- [ ] **Test Logging**: Verify logs appear in file and not on console.
+- [x] **Test Concurrency**: Verify `user_loop` is not blocked by `supervisor_loop`.
+- [x] **Test REPL State**: Unit test to verify variable persistence.
+- [x] **Test Logging**: Verify logs appear in file and not on console.
 
 ## 🏗️ In Progress
-*No tasks currently in progress.*
+*Phase 1 Complete. Ready for Phase 2.*
 
 ## ✅ Done
 - [x] **Plan Review**: Reviewed and finalized architectural approach (`plans.md`, `suggestions.md`).
