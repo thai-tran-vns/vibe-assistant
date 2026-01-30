@@ -1,13 +1,18 @@
-# Revised Project Plan: The Supervisor Architecture
+# Revised Project Plan: The Supervisor Architecture (v2)
 
 ## Overview
-Transform `vibe-assistant` from a simple concurrent loop into a robust **Supervisor-Worker Agent System**. The goal is a highly modular, autonomous CLI assistant where a central "Supervisor" orchestrates specialized "Sub-agents" to handle tasks, utilizing a shared "Memory" and "Skill" system.
+Transform `vibe-assistant` into a **Supervisor-Worker Agent System** inspired by the `RLM` "Master Chef" model. The goal is a highly modular, autonomous CLI assistant.
+
+*   **Supervisor (System):** The "Head Chef" who orchestrates.
+*   **Sub-Agents (Workers):** The "Line Cooks" who execute specialized tasks.
+*   **Skills:** The "Recipes" (workflows/logic) that Agents follow.
+*   **Tools:** The "Kitchen Appliances" (atomic functions) used by Skills.
+*   **Memory:** The "Orders & Notes" (shared context).
 
 ---
 
-## Phase 1: The Foundation (Revised)
+## Phase 1: The Foundation
 **Focus:** Infrastructure, Event Loop, and basic "Supervisor" Skeleton.
-*Status: Partially Complete (Async loop exists).*
 
 ### Tasks
 1.  **Refine `main.py`:**
@@ -16,28 +21,31 @@ Transform `vibe-assistant` from a simple concurrent loop into a robust **Supervi
 2.  **Define Core Interfaces (`core.py`):**
     *   `Agent`: Protocol defining `run()`, `shutdown()`.
     *   `Memory`: Protocol for data access.
-    *   `Skill`: Protocol for executable actions.
+    *   `Tool`: Protocol for atomic executable actions.
 3.  **Implement Basic Supervisor:**
     *   A simple state machine that logs "Watching..." and can react to a "ping" from the user.
 
 ---
 
-## Phase 2: Memory & Skills System
-**Focus:** The "Brain" and "Hands" of the system.
+## Phase 2: The "RLM" Core (Memory, Tools, Skills)
+**Focus:** The Brain (Memory) and Hands (Tools/Skills).
 
 ### Tasks
 1.  **Memory System (`memory/`):**
-    *   **Structure:** Create `MemoryManager` class.
-    *   **Components:**
-        *   `Inbox`: For incoming user messages.
-        *   `Archive`: For persistent storage (JSON/SQLite).
-    *   **Persistence:** Implement atomic save/load to `data/memory.json`.
-2.  **Skill Registry (`skills/`):**
-    *   **Base Class:** `BaseSkill` with `name`, `description`, `execute()`.
-    *   **Initial Skills:**
-        *   `SaveNoteSkill`: Saves text to memory.
-        *   `ListNotesSkill`: Retrieves text.
-    *   **Registry:** A dynamic loader to register skills by name.
+    *   **Concept:** Distinguish between "Session Memory" (Active context, short-term) and "Archive" (Long-term persistence).
+    *   **Structure:** Create `MemoryManager`.
+    *   **Persistence:** Implement atomic save/load to `data/memory.json` (or YAML as per RLM preference).
+2.  **Tool System (`tools/`):**
+    *   **Concept:** Atomic, side-effect producing Python functions (The "Appliances").
+    *   **Initial Tools:**
+        *   `FileTool`: Read/Write files.
+        *   `TimeTool`: Get current time.
+3.  **Skill System (`skills/`):**
+    *   **Concept:** Workflows that chain Tools together (The "Recipes").
+    *   **Implementation:**
+        *   Define `BaseSkill` with `name`, `description`, `execute()`.
+        *   Design to eventually support Markdown-defined logic (RLM style), but start with Python classes for simplicity.
+        *   *Example Skill:* `SaveNoteSkill` (uses `FileTool` + formatting logic).
 
 ---
 
@@ -47,16 +55,15 @@ Transform `vibe-assistant` from a simple concurrent loop into a robust **Supervi
 ### Tasks
 1.  **Sub-Agent Framework:**
     *   Create `BaseAgent` class implementing the Phase 1 interface.
-    *   Give Agents access to specific `Skills` and `Memory` slices.
+    *   Agents are assigned specific **Skills** and access to **Memory**.
 2.  **The "Supervisor" Logic:**
-    *   Implement routing logic:
-        *   *If input starts with "todo" -> Delegate to `TaskAgent`.*
+    *   Implement routing logic (The "Dispatcher"):
+        *   *If input implies action -> Delegate to `TaskAgent`.*
         *   *If input is chat -> Delegate to `ChatAgent`.*
-        *   *Else -> Log "Unknown command".*
 3.  **Implement `TaskAgent`:**
-    *   A specialized sub-agent that uses `SaveNoteSkill` to parse and store tasks.
+    *   Equipped with `SaveNoteSkill`, `ListNotesSkill`.
 4.  **Implement `ChatAgent`:**
-    *   A specialized sub-agent that simply echoes or (later) calls an LLM.
+    *   Equipped with basic conversation logic (echo or LLM integration).
 
 ---
 
@@ -66,7 +73,7 @@ Transform `vibe-assistant` from a simple concurrent loop into a robust **Supervi
 ### Tasks
 1.  **TUI Integration:**
     *   Move to `textual` or `rich` for a split-screen interface.
-    *   Visualizing the "Supervisor" state (Idle, Delegating, Waiting).
+    *   Visualize Supervisor state (Idle, Delegating, Waiting).
 2.  **Proactive Routines:**
     *   Give Supervisor a `Cron` trigger (e.g., "Every 5 mins check for stale tasks").
     *   Supervisor wakes up `HousekeeperAgent` to clean up memory.
@@ -74,5 +81,5 @@ Transform `vibe-assistant` from a simple concurrent loop into a robust **Supervi
 ---
 
 ## Verification Plan
-*   **Unit Tests:** Test `Memory` read/write, `Skill` execution, and `Supervisor` routing logic in isolation.
-*   **Integration Tests:** Simulate a user "Add Note" command and verify the full chain: User -> Supervisor -> TaskAgent -> Skill -> Memory -> Disk.
+*   **Unit Tests:** Test `Memory` read/write, `Tool` execution, and `Supervisor` routing logic.
+*   **Integration Tests:** Simulate a user "Add Note" command -> Supervisor -> TaskAgent -> SaveNoteSkill -> FileTool -> Disk.

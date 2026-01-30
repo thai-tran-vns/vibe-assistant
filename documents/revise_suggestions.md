@@ -1,31 +1,29 @@
-# Architectural Suggestions
+# Architectural Suggestions (Incorporated into Plan v2)
 
 ## 1. The Supervisor-Worker Architecture
-Instead of a single monolithic loop, we structure the application as a hierarchy:
-*   **Supervisor Agent (`System`):** The "Main Loop". It never sleeps (conceptually). It monitors the `Memory`, checks `Triggers`, and decides which `Sub-Agent` to wake up.
-*   **Sub-Agents (`Workers`):** Specialized units. They come alive, perform a specific task, return a result to `Memory`, and shut down/sleep.
-    *   *Examples:* `NoteTaker`, `TaskPlanner`, `Summarizer`, `Housekeeper`.
+*   **Supervisor Agent (`System`):** The "Head Chef". Monitors `Memory`, checks `Triggers`, delegates to `Sub-Agents`.
+*   **Sub-Agents (`Workers`):** The "Line Cooks". Execute specific `Skills`.
+    *   *Examples:* `TaskAgent`, `ChatAgent`.
 
 ## 2. Memory Architecture ("The Blackboard")
-We should move away from direct file manipulation by agents.
-*   **The Shared Workspace:** A central `MemoryStore` object.
+*   **The Shared Workspace:** A central `MemoryManager`.
 *   **Structure:**
-    *   `ShortTerm`: Recent user inputs, active context.
-    *   `LongTerm`: Stored notes, completed tasks (Database/Files).
+    *   `SessionMemory`: Recent user inputs, active context (Short-term).
+    *   `Archive`: Stored notes, completed tasks (Long-term/Files).
     *   `WorkingMemory`: The current "Plan" being executed.
-*   **Pattern:** Agents read from Memory -> Think -> Write to Memory.
 
-## 3. Skill Registry
-Decouple "Capabilities" from "Agents".
-*   **Skills:** Atomic, executable Python functions (e.g., `write_file`, `search_notes`, `send_notification`).
-*   **Registry:** A dictionary mapping `skill_name` -> `callable`.
-*   **Usage:** The Supervisor grants specific subsets of skills to specific sub-agents.
+## 3. Capability System (Tools & Skills)
+Decouple "Atomic Actions" from "Workflows".
+*   **Tools (The "Appliances"):** Atomic, side-effect producing Python functions (e.g., `write_file`, `get_time`).
+*   **Skills (The "Recipes"):** Workflows that chain Tools together (e.g., `SaveNoteSkill`, `DailyReviewSkill`).
+    *   *Future Goal:* Define Skills in Markdown (RLM style).
+*   **Registry:** Dynamic loader to register Skills/Tools by name.
 
 ## 4. Implementation Strategy (Pythonic)
-*   **Protocol Classes:** Use `typing.Protocol` to define `Agent` and `Skill` interfaces strictly.
-*   **Event Bus:** Consider a simple in-memory event bus (`user_input_received` -> `supervisor_wakes_up`) to decouple the loop from the logic.
+*   **Protocol Classes:** Use `typing.Protocol` to define `Agent`, `Tool`, and `Skill` interfaces.
+*   **Event Bus:** Consider a simple in-memory event bus (`user_input_received` -> `supervisor_wakes_up`).
 
 ## 5. Technology Stack Recommendations
-*   **Pydantic:** For strict schema validation of Agent inputs/outputs.
-*   **LiteLLM:** (If AI is used) For unified API access to various LLMs.
-*   **ChromaDB:** (Optional) For semantic search over long-term memory if the corpus grows large.
+*   **Pydantic:** For strict schema validation.
+*   **LiteLLM:** (If AI is used) For unified LLM access.
+*   **Loguru:** For structured logging.
